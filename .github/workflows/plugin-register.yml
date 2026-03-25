@@ -1,4 +1,4 @@
-name: Plugin Register
+name: Plugin Register 
 
 on:
   pull_request:
