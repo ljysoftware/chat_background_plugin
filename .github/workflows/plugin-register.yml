@@ -33,6 +33,6 @@ jobs:
         env:
           PLUGIN_REPO_OWNER: ${{ github.repository_owner }}
           PLUGIN_REPO_NAME: ${{ github.event.repository.name }}
-          PLUGIN_REPO_BRANCH: pair-programming-with-chris
+          PLUGIN_REPO_BRANCH: main
           API_URL: https://simple-chat-plugin-server.onrender.com/plugins
         run: python cli/scripts/register-plugins.py
