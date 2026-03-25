@@ -1,4 +1,4 @@
-name: Plugin Validation 
+name: Plugin Validation
 
 on:
   pull_request:
