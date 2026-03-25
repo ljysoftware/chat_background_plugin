@@ -2,10 +2,7 @@ name: Plugin Validation
 
 on:
   pull_request:
-    branches: [main]
-    paths:
-      - 'assets/plugins/**'
-      - 'pluginspec.yml'
+    branches: [dev]
 
 jobs:
   validate:
@@ -16,13 +13,19 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          node-version: '20'
+          python-version: '3.12'
 
       - name: Install dependencies
-        run: npm install js-yaml
+        run: pip install pyyaml
+
+      - name: Download validation script
+        run: |
+          curl -L \
+              -o register-plugins.py \
+              "https://raw.githubusercontent.com/${{ vars.PRIVATE_REGISTRY_REPO }}/main/scripts/register-plugins.py"
 
       - name: Run plugin validation
-        run: node scripts/validate-plugins.js
+        run: python register-plugins.py
