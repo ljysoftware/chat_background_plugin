@@ -1,0 +1,5 @@
+plugins:
+  - name: chat_background_plugin
+    version: 1.0.0
+    url: assets/plugins/chat_background_plugin.js
+    description: A plugin to change the chat background.
