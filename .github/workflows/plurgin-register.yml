@@ -2,7 +2,7 @@ name: Plugin Register
 
 on:
   pull_request:
-    branches: [main]
+    branches: [dev]
   workflow_dispatch:
 
 jobs:
