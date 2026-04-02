@@ -1,0 +1,6 @@
+plugins:
+  - name: chat_background_plugin
+    version: 1.0.0
+    assets:
+      - assets/plugins/chat_background_plugin.js
+    description: Change the chat background picture
