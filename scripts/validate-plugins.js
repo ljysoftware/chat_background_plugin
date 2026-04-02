@@ -1,9 +1,8 @@
 const yaml = require('js-yaml');
 const fs = require('fs');
-const path = require('path');
 
 const SPEC_FILE = 'pluginspec.yml';
-const REQUIRED_FIELDS = ['name', 'version', 'url', 'description'];
+const REQUIRED_FIELDS = ['name', 'version', 'assets', 'description'];
 
 const DANGEROUS_PATTERNS = [
   { pattern: /eval\s*\(/, name: 'eval()' },
@@ -15,19 +14,19 @@ const DANGEROUS_PATTERNS = [
   { pattern: /localStorage/, name: 'localStorage access' },
   { pattern: /sessionStorage/, name: 'sessionStorage access' },
   { pattern: /document\.cookie/, name: 'cookie access' },
-  { pattern: /<script/, name: 'script tag injection' }
+  { pattern: /<script/, name: 'script tag injection' },
 ];
 
 let hasError = false;
 let hasWarning = false;
 
 function log(type, ...args) {
-  const icons = { ok: '✓', error: '✗', warn: '⚠', info: '→' };
+  const icons = { ok: '[OK]', error: '[ERROR]', warn: '[WARN]', info: '[INFO]' };
   console.log(icons[type] || '', ...args);
 }
 
 function loadSpec() {
-  console.log('\n📄 Validating YAML syntax...');
+  console.log('\nValidating YAML syntax...');
   try {
     const doc = yaml.load(fs.readFileSync(SPEC_FILE, 'utf8'));
     log('ok', 'YAML syntax is valid');
@@ -40,12 +39,12 @@ function loadSpec() {
 }
 
 function validateSchema(doc) {
-  console.log('\n📋 Validating plugin schema...');
+  console.log('\nValidating plugin schema...');
 
   doc.plugins.forEach((plugin, index) => {
     const name = plugin.name || `plugin[${index}]`;
 
-    REQUIRED_FIELDS.forEach(field => {
+    REQUIRED_FIELDS.forEach((field) => {
       if (!plugin[field]) {
         log('error', `${name}: missing required field "${field}"`);
         hasError = true;
@@ -56,82 +55,97 @@ function validateSchema(doc) {
       log('error', `${name}: invalid version format "${plugin.version}"`);
       hasError = true;
     }
-
-    if (plugin.url && !plugin.url.endsWith('.js')) {
-      log('error', `${name}: url must end with .js`);
-      hasError = true;
-    }
   });
 
   if (!hasError) log('ok', 'All plugins have valid schema');
 }
 
 function checkFilesExist(doc) {
-  console.log('\n📁 Checking plugin files exist...');
+  console.log('\nChecking plugin files exist...');
 
-  doc.plugins.forEach(plugin => {
-    if (fs.existsSync(plugin.url)) {
-      log('ok', `${plugin.url} exists`);
-    } else {
-      log('error', `${plugin.url} not found`);
+  doc.plugins.forEach((plugin) => {
+    if (!plugin.assets || plugin.assets.length === 0) {
+      log('error', `${plugin.name}: no assets defined`);
       hasError = true;
+      return;
     }
+
+    plugin.assets.forEach((asset) => {
+      if (fs.existsSync(asset)) {
+        log('ok', `${asset} exists`);
+      } else {
+        log('error', `${asset} not found`);
+        hasError = true;
+      }
+    });
   });
 }
 
 function validateJsSyntax(doc) {
-  console.log('\n🔧 Validating JavaScript syntax...');
+  console.log('\nValidating JavaScript syntax...');
 
-  doc.plugins.forEach(plugin => {
-    if (!fs.existsSync(plugin.url)) return;
+  doc.plugins.forEach((plugin) => {
+    if (!plugin.assets) return;
 
-    const code = fs.readFileSync(plugin.url, 'utf8');
-    try {
-      new Function(code);
-      log('ok', `${plugin.url} syntax OK`);
-    } catch (e) {
-      log('error', `${plugin.url} syntax error: ${e.message}`);
-      hasError = true;
-    }
+    plugin.assets.forEach((asset) => {
+      if (!fs.existsSync(asset)) return;
+
+      const code = fs.readFileSync(asset, 'utf8');
+      try {
+        new Function(code);
+        log('ok', `${asset} syntax OK`);
+      } catch (e) {
+        log('error', `${asset} syntax error: ${e.message}`);
+        hasError = true;
+      }
+    });
   });
 }
 
 function validatePluginStructure(doc) {
-  console.log('\n🏗️  Validating plugin structure...');
+  console.log('\nValidating plugin structure...');
 
-  doc.plugins.forEach(plugin => {
-    if (!fs.existsSync(plugin.url)) return;
+  doc.plugins.forEach((plugin) => {
+    if (!plugin.assets) return;
 
-    const code = fs.readFileSync(plugin.url, 'utf8');
+    plugin.assets.forEach((asset) => {
+      if (!fs.existsSync(asset)) return;
 
-    if (!code.includes('function onLoad')) {
-      log('error', `${plugin.url} missing onLoad function`);
-      hasError = true;
-    } else {
-      log('ok', `${plugin.url} has onLoad function`);
-    }
+      const code = fs.readFileSync(asset, 'utf8');
 
-    if (!code.includes('registerPluginActions')) {
-      log('warn', `${plugin.url} missing registerPluginActions call`);
-      hasWarning = true;
-    }
+      if (!code.includes('function onLoad')) {
+        log('error', `${asset} missing onLoad function`);
+        hasError = true;
+      } else {
+        log('ok', `${asset} has onLoad function`);
+      }
+
+      if (!code.includes('registerPluginActions')) {
+        log('warn', `${asset} missing registerPluginActions call`);
+        hasWarning = true;
+      }
+    });
   });
 }
 
 function securityCheck(doc) {
-  console.log('\n🔒 Running security checks...');
+  console.log('\nRunning security checks...');
 
-  doc.plugins.forEach(plugin => {
-    if (!fs.existsSync(plugin.url)) return;
+  doc.plugins.forEach((plugin) => {
+    if (!plugin.assets) return;
 
-    const code = fs.readFileSync(plugin.url, 'utf8');
-    log('info', `Scanning ${plugin.url}`);
+    plugin.assets.forEach((asset) => {
+      if (!fs.existsSync(asset)) return;
 
-    DANGEROUS_PATTERNS.forEach(({ pattern, name }) => {
-      if (pattern.test(code)) {
-        log('warn', `Found potentially dangerous pattern: ${name}`);
-        hasWarning = true;
-      }
+      const code = fs.readFileSync(asset, 'utf8');
+      log('info', `Scanning ${asset}`);
+
+      DANGEROUS_PATTERNS.forEach(({ pattern, name }) => {
+        if (pattern.test(code)) {
+          log('warn', `Found potentially dangerous pattern: ${name}`);
+          hasWarning = true;
+        }
+      });
     });
   });
 
@@ -139,9 +153,9 @@ function securityCheck(doc) {
 }
 
 function checkDuplicates(doc) {
-  console.log('\n🔍 Checking for duplicate plugins...');
+  console.log('\nChecking for duplicate plugins...');
 
-  const names = doc.plugins.map(p => p.name);
+  const names = doc.plugins.map((p) => p.name);
   const duplicates = names.filter((name, index) => names.indexOf(name) !== index);
 
   if (duplicates.length > 0) {
@@ -153,7 +167,7 @@ function checkDuplicates(doc) {
 }
 
 function main() {
-  console.log('🚀 Plugin Validation Started');
+  console.log('Plugin Validation Started');
   console.log('='.repeat(40));
 
   const doc = loadSpec();
@@ -167,12 +181,12 @@ function main() {
   console.log('\n' + '='.repeat(40));
 
   if (hasError) {
-    console.log('❌ Validation FAILED');
+    console.log('Validation FAILED');
     process.exit(1);
   } else if (hasWarning) {
-    console.log('⚠️  Validation PASSED with warnings');
+    console.log('Validation PASSED with warnings');
   } else {
-    console.log('✅ Validation PASSED');
+    console.log('Validation PASSED');
   }
 }
 
